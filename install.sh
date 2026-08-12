@@ -9,14 +9,13 @@ docker compose version >/dev/null
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Created .env from .env.example — edit TZ/PUID/ports if you want."
+  echo "Created .env from .env.example — edit TZ/ports/APP_URL if you want."
 fi
 
 mkdir -p data/config
-docker compose pull
+docker compose build
 docker compose up -d
 
 echo
-echo "Heimdall is starting."
+echo "Heimdall is starting (official php:apache image + Heimdall upstream source)."
 echo "Open http://<this-computer-ip>:$(grep -E '^HTTP_PORT=' .env | cut -d= -f2 || echo 80)/"
-echo "HTTPS also listens on port $(grep -E '^HTTPS_PORT=' .env | cut -d= -f2 || echo 443) (self-signed cert)."

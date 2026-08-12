@@ -4,6 +4,8 @@ Deploy [Heimdall](https://heimdall.site/) with Docker Compose — a simple appli
 
 Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
 
+Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and builds Heimdall from the [upstream release](https://github.com/linuxserver/Heimdall/releases) (no LinuxServer container runtime).
+
 ## What you need
 
 - Docker with Compose plugin (`docker compose`)
@@ -21,7 +23,7 @@ Or:
 
 ```bash
 cp .env.example .env
-docker compose up -d
+docker compose up -d --build
 ```
 
 Open `http://YOUR_IP/` (or the `HTTP_PORT` from `.env`).
@@ -33,14 +35,14 @@ Edit `.env`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `TZ` | `America/New_York` | Timezone |
-| `PUID` / `PGID` | `1000` | File ownership (`id -u` / `id -g`) |
-| `HTTP_PORT` / `HTTPS_PORT` | `80` / `443` | Host ports |
+| `HTTP_PORT` | `80` | Host port |
 | `ALLOW_INTERNAL_REQUESTS` | `true` | Allow Heimdall to reach LAN app IPs |
+| `APP_URL` | `http://localhost` | Public URL (set this if you use a reverse proxy) |
 
 ## Update
 
 ```bash
-docker compose pull
+docker compose build --pull
 docker compose up -d
 ```
 
