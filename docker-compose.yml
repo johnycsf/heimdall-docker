@@ -1,7 +1,7 @@
 services:
   heimdall:
     build: .
-    image: ghcr.io/johnycsf/heimdall:latest
+    image: heimdall:local
     container_name: heimdall
     restart: unless-stopped
     environment:
