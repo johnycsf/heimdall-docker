@@ -6,6 +6,8 @@ Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
 
 Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and builds Heimdall from the [upstream release](https://github.com/linuxserver/Heimdall/releases) (no LinuxServer container runtime).
 
+> **Updating an older clone?** `git pull` alone will not wipe data. Re-running install/compose **can** break a LinuxServer-based install. Read [BREAKING-CHANGES.md](BREAKING-CHANGES.md) first.
+
 ## What you need
 
 - Docker with Compose plugin (`docker compose`)
@@ -41,10 +43,14 @@ Edit `.env`:
 
 ## Update
 
+Only for installs that **already** use this repo’s official-php image.
+
 ```bash
 docker compose build --pull
 docker compose up -d
 ```
+
+If you previously used LinuxServer Heimdall, do **not** run the commands above after a pull — see [BREAKING-CHANGES.md](BREAKING-CHANGES.md).
 
 ## Uninstall
 
