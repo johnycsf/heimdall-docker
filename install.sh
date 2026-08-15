@@ -2,8 +2,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
-
-need() { command -v "$1" >/dev/null || { echo "Missing: $1" >&2; exit 1; }; }
+# shellcheck source=deps.sh
+source "${ROOT}/deps.sh"
+ensure_host_deps docker sqlite3
 
 refuse_legacy_data() {
   if [[ "${I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL:-}" == "yes" ]]; then
@@ -30,8 +31,6 @@ EOF
   fi
 }
 
-need docker
-docker compose version >/dev/null
 refuse_legacy_data
 
 if [[ ! -f .env ]]; then

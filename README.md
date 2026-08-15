@@ -12,7 +12,11 @@ Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and
 
 ## What you need
 
-- Docker with Compose plugin (`docker compose`)
+- A Linux host (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine) or macOS with Homebrew
+- `sudo` so `./install.sh` can install missing tools (Docker, curl, openssl, rsync, …)
+- Enough disk for your data
+
+`./install.sh` detects your OS and installs host dependencies automatically.
 
 ## Install
 
