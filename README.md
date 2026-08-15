@@ -1,5 +1,7 @@
 # heimdall-docker
 
+![Repobeats analytics image](https://repobeats.axiom.co/api/embed/56187ad981a21b6f4e83617ea52721341d344acc.svg "Repobeats analytics image")
+
 Deploy [Heimdall](https://heimdall.site/) with Docker Compose — a simple application dashboard for your homelab links.
 
 Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
@@ -60,9 +62,6 @@ docker compose down
 rm -rf data
 ```
 
-## Repository activity
-
-![Repobeats analytics image](https://repobeats.axiom.co/api/embed/56187ad981a21b6f4e83617ea52721341d344acc.svg "Repobeats analytics image")
 
 ## Contributing
 
