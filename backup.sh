@@ -34,6 +34,11 @@ Fresh-machine workflow:
   1) Install this stack on the new host (./install.sh) so runtime exists.
   2) ./backup.sh --restore --from /mnt/usb/my-backups
   3) Script replaces data/secrets and finishes app-specific repair (e.g. Nextcloud scan).
+
+Database safety:
+  MariaDB/Nextcloud  — logical dump (--single-transaction), never live datadir copy.
+  SQLite apps       — service stopped/scaled down, WAL checkpoint, then file copy.
+  Incremental rsync applies to files; each MariaDB dump is a full verified SQL file.
 EOF
 }
 
@@ -170,6 +175,47 @@ EOF
 }
 
 
+# --- SQLite safety (stop/quiesce, checkpoint WAL, then copy; never copy a live DB) ---
+sqlite_checkpoint_tree() {
+  local root="$1"
+  command -v sqlite3 >/dev/null 2>&1 || {
+    echo "    sqlite3 CLI not on host — relying on stopped service + full file copy (incl. -wal/-shm)."
+    return 0
+  }
+  local db count=0
+  while IFS= read -r -d '' db; do
+    echo "    Checkpointing SQLite: $db"
+    sqlite3 "$db" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null
+    count=$((count + 1))
+  done < <(find "$root" -type f \( -name '*.sqlite' -o -name '*.sqlite3' -o -name 'db.sqlite3' -o -name 'app.sqlite' \) -print0 2>/dev/null)
+  echo "    Checkpointed ${count} SQLite file(s)."
+}
+
+verify_sqlite_tree() {
+  local root="$1"
+  local found=0
+  local db
+  while IFS= read -r -d '' db; do
+    found=1
+    if [[ ! -s "$db" ]]; then
+      echo "SQLite file empty after backup: $db" >&2
+      return 1
+    fi
+    if command -v sqlite3 >/dev/null 2>&1; then
+      sqlite3 "$db" "PRAGMA integrity_check;" | grep -qx 'ok' || {
+        echo "SQLite integrity_check failed: $db" >&2
+        return 1
+      }
+    fi
+    echo "    OK SQLite: $db ($(wc -c <"$db" | tr -d ' ') bytes)"
+  done < <(find "$root" -type f \( -name '*.sqlite' -o -name '*.sqlite3' -o -name 'db.sqlite3' -o -name 'app.sqlite' \) -print0 2>/dev/null)
+  if [[ "$found" -eq 0 ]]; then
+    echo "Warning: no SQLite DB file found under $root (app may be empty/new)." >&2
+  fi
+}
+
+
+
 do_backup() {
   need_rsync
   need docker
@@ -178,23 +224,42 @@ do_backup() {
   DEST="$(mkdir -p "$DEST" && cd "$DEST" && pwd)"
   prepare_snapshot_dirs "$DEST"
   echo "==> Snapshot ${SNAP_NAME} -> ${SNAP_DIR}"
-  echo "==> Stopping stack briefly for a consistent copy..."
+  echo "==> DB strategy: stop service, SQLite WAL checkpoint, then incremental file copy."
+
+  ensure_started() { docker compose start >/dev/null 2>&1 || true; }
+  cleanup_failed() {
+    ensure_started
+    rm -rf "${SNAP_DIR}"
+  }
+  trap cleanup_failed EXIT
+
+  echo "==> Stopping stack for a consistent SQLite copy..."
   docker compose stop
   [[ -f .env ]] && cp -a .env "${SNAP_DIR}/"
   [[ -f docker-compose.yml ]] && cp -a docker-compose.yml "${SNAP_DIR}/"
+  if [[ ! -d data ]]; then
+    echo "No data/ directory — nothing to back up." >&2
+    exit 1
+  fi
+  sqlite_checkpoint_tree "data"
   local prev_files=""
   [[ -n "${PREV_LINK}" && -d "${PREV_LINK}/files" ]] && prev_files="${PREV_LINK}/files"
-  if [[ -d data ]]; then
-    rsync_incremental "data" "${SNAP_DIR}/files" "${prev_files}"
-  else
-    mkdir -p "${SNAP_DIR}/files"
-  fi
-  write_meta "${SNAP_DIR}" "$STACK_ID" "heimdall data/ + .env"
+  rsync_incremental "data" "${SNAP_DIR}/files" "${prev_files}"
+  verify_sqlite_tree "${SNAP_DIR}/files"
+  cat >"${SNAP_DIR}/META.txt" <<EOF
+stack=${STACK_ID}
+created=$(date -Iseconds)
+host=$(hostname 2>/dev/null || echo unknown)
+note=heimdall data/ after stop + sqlite checkpoint
+db_engine=sqlite
+db_method=stop+wal_checkpoint+rsync
+EOF
+  trap - EXIT
   docker compose start
   finalize_snapshot "$DEST"
   prune_snapshots "$DEST" "${KEEP}"
   echo
-  echo "Tip: keep this backup root on an external drive or NAS."
+  echo "Backup OK. Tip: keep this backup root on an external drive or NAS."
 }
 
 do_restore() {
