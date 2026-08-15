@@ -45,14 +45,16 @@ Edit `.env`:
 
 ## Update
 
-Only for installs that **already** use this repo’s official-php image.
+Keep the stack current (safe while running; brief recreate downtime):
 
 ```bash
-docker compose build --pull
-docker compose up -d
+chmod +x update.sh
+./update.sh
 ```
 
-If you previously used LinuxServer Heimdall, do **not** run the commands above after a pull — see [BREAKING-CHANGES.md](BREAKING-CHANGES.md).
+This pulls/rebuilds images, recreates containers as needed, and runs `docker image prune` for **dangling** (untagged) images only — it will not wipe other projects' images or your `data/` volume.
+
+Only for installs already on this repo's official-php image — see [BREAKING-CHANGES.md](BREAKING-CHANGES.md).
 
 ## Uninstall
 
