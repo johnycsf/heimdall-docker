@@ -60,6 +60,10 @@ docker compose down
 rm -rf data
 ```
 
+## Repository activity
+
+![Repobeats analytics image](https://repobeats.axiom.co/api/embed/56187ad981a21b6f4e83617ea52721341d344acc.svg "Repobeats analytics image")
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
