@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
+# Install Heimdall with Docker Compose (interactive).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 # shellcheck source=deps.sh
 source "${ROOT}/deps.sh"
-ensure_host_deps docker sqlite3
+
+ui_banner "Heimdall" "Docker Compose · official php:apache + upstream Heimdall"
+ui_steps_init 4
 
 refuse_legacy_data() {
   if [[ "${I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL:-}" == "yes" ]]; then
-    echo "Override set: I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes — continuing."
+    ui_warn "Override set: I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes — continuing."
     return 0
   fi
-  # LinuxServer Heimdall persists app files under /config/www
   if [[ -d data/config/www ]] || [[ -f data/config/www/index.php ]]; then
+    ui_err "Existing data looks like a LinuxServer Heimdall install."
     cat <<'EOF' >&2
-Refusing to start: existing data looks like a LinuxServer Heimdall install.
 
-git pull alone is safe. Re-running this script / compose with the new image is NOT
-an in-place upgrade and can break your dashboard.
-
-See BREAKING-CHANGES.md
+git pull alone is safe. Re-running this script with the new image is NOT
+an in-place upgrade and can break your dashboard. See BREAKING-CHANGES.md
 
 Options:
   1) Keep running your current containers (do nothing).
@@ -31,17 +31,28 @@ EOF
   fi
 }
 
-refuse_legacy_data
+ui_step "Checking host dependencies"
+ensure_host_deps docker sqlite3
 
+ui_step "Checking for incompatible legacy data"
+refuse_legacy_data
+ui_ok "Data path looks good"
+
+ui_step "Preparing configuration"
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Created .env from .env.example — edit TZ/ports/APP_URL if you want."
+  ui_ok "Created .env from .env.example — edit TZ/ports/APP_URL if you want"
+else
+  ui_ok "Using existing .env"
 fi
-
 mkdir -p data/config
-docker compose build
-docker compose up -d
 
+ui_step "Building and starting containers"
+ui_run "Building Heimdall image" docker compose build
+ui_run "Starting stack" docker compose up -d
+
+PORT="$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 80)"
 echo
-echo "Heimdall is starting (official php:apache image + Heimdall upstream source)."
-echo "Open http://<this-computer-ip>:$(grep -E '^HTTP_PORT=' .env | cut -d= -f2 || echo 80)/"
+ui_ok "Heimdall is starting"
+ui_info "Open: ${UI_BOLD}http://<this-computer-ip>:${PORT}/${UI_RESET}"
+ui_info "Later: ./update.sh   ·   ./backup.sh --dest /path/to/backups"
