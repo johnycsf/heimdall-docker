@@ -21,7 +21,7 @@ If you installed from an **older revision** of this repo, those next steps **are
 `install.sh` refuses to proceed when it detects LinuxServer Heimdall data unless you set:
 
 ```bash
-I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes ./install.sh
+I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes ./manage.sh install
 ```
 
 That override means you accept starting clean (or you already moved old data aside).

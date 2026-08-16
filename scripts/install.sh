@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install Heimdall with Docker Compose (interactive).
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-# shellcheck source=deps.sh
-source "${ROOT}/deps.sh"
+# shellcheck source=scripts/deps.sh
+source "${ROOT}/scripts/deps.sh"
 
 ui_banner "Heimdall" "Docker Compose · official php:apache + upstream Heimdall"
 ui_steps_init 4
@@ -25,7 +25,7 @@ Options:
   1) Keep running your current containers (do nothing).
   2) Move data/ aside, then install fresh.
   3) Only if you accept a fresh install:
-       I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes ./install.sh
+       I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes ./manage.sh install
 EOF
     exit 1
   fi
@@ -65,4 +65,4 @@ PORT="$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 80)"
 echo
 ui_ok "Heimdall is starting"
 ui_info "Open: ${UI_BOLD}http://<this-computer-ip>:${PORT}/${UI_RESET}"
-ui_info "Later: ./update.sh   ·   ./backup.sh --dest /path/to/backups"
+ui_info "Later: ./manage.sh update   ·   ./manage.sh backup --dest /path/to/backups"

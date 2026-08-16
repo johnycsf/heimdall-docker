@@ -3,7 +3,7 @@
 # Safely update the running Heimdall stack and remove dangling images.
 # Creates a local rollback backup first, then asks whether to keep it / how many to retain.
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 
@@ -21,7 +21,7 @@ refuse_legacy_data() {
     cat <<'EOF' >&2
 Refusing to update: data looks like a LinuxServer Heimdall install.
 
-./update.sh is only for stacks already using this repo's official-php image.
+./manage.sh update is only for stacks already using this repo's official-php image.
 See BREAKING-CHANGES.md
 EOF
     exit 1
@@ -35,8 +35,8 @@ Tip: Local backups under backups/ can fill your disk over time.
 Copy important snapshots to an external drive, NAS, or cloud
 (rclone, Backblaze B2, S3, Nextcloud, etc.), then keep fewer copies here.
 Restore later with:
-  ./backup.sh --restore --from ./backups
-  ./backup.sh --restore --from /mnt/usb/my-backups
+  ./manage.sh backup --restore --from ./backups
+  ./manage.sh backup --restore --from /mnt/usb/my-backups
 EOF
 }
 
@@ -120,21 +120,21 @@ ask_backup_retention() {
       prune_old_backups "${keep}"
       print_offsite_tip
       echo "  This snapshot: ${dir}"
-      echo "  Manual restore: ./backup.sh --restore --from ./backups"
+      echo "  Manual restore: ./manage.sh backup --restore --from ./backups"
       ;;
   esac
 }
 
 create_backup() {
-  if [[ ! -x "${ROOT}/backup.sh" ]]; then
+  if [[ ! -x "${ROOT}/scripts/backup.sh" ]]; then
     echo "Missing executable backup.sh (required for pre-update snapshots)." >&2
     exit 1
   fi
   local keep="${DEFAULT_KEEP}"
   [[ -f "${KEEP_FILE}" ]] && keep="$(tr -dc '0-9' <"${KEEP_FILE}" || true)"
   [[ -z "${keep}" ]] && keep="${DEFAULT_KEEP}"
-  echo "==> Pre-update snapshot via ./backup.sh --dest ${BACKUP_ROOT} ..."
-  "${ROOT}/backup.sh" --dest "${BACKUP_ROOT}" --keep "${keep}"
+  echo "==> Pre-update snapshot via ./manage.sh backup --dest ${BACKUP_ROOT} ..."
+  "${ROOT}/scripts/backup.sh" --dest "${BACKUP_ROOT}" --keep "${keep}"
   if [[ -L "${BACKUP_ROOT}/latest" ]]; then
     BACKUP_DIR="$(readlink -f "${BACKUP_ROOT}/latest")"
   else
@@ -153,7 +153,7 @@ docker compose version >/dev/null
 refuse_legacy_data
 
 if [[ ! -f .env ]]; then
-  echo "No .env found. Run ./install.sh first." >&2
+  echo "No .env found. Run ./manage.sh first." >&2
   exit 1
 fi
 
