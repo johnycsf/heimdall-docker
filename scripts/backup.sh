@@ -361,7 +361,7 @@ verify_sqlite_tree() {
 
 do_backup() {
   need_rsync
-  need docker
+  need_container_engine
   compose version >/dev/null
   [[ -n "$DEST" ]] || { echo "Provide --dest /path" >&2; exit 1; }
   DEST="$(mkdir -p "$DEST" && cd "$DEST" && pwd)"
@@ -408,7 +408,7 @@ EOF
 }
 
 do_restore() {
-  need docker
+  need_container_engine
   compose version >/dev/null
   [[ -n "$FROM" ]] || { echo "Provide --from /path" >&2; exit 1; }
   local snap src
@@ -425,7 +425,9 @@ do_restore() {
   read -r -p "Type 'restore' to continue: " confirm || true
   [[ "${confirm}" == "restore" ]] || { echo "Aborted."; exit 1; }
   compose down
+  save_host_install_env
   [[ -f "${snap}/.env" ]] && cp -a "${snap}/.env" .env
+  apply_host_install_env
   rm -rf data
   mkdir -p data
   ensure_host_owned_dir data

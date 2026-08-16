@@ -150,8 +150,7 @@ create_backup() {
 }
 
 
-need docker
-compose version >/dev/null
+need_container_engine
 refuse_legacy_data
 
 if [[ ! -f .env ]]; then
@@ -168,7 +167,7 @@ compose up -d --remove-orphans
 echo "==> Status:"
 compose ps
 echo "==> Removing dangling (untagged) images only — not other projects' images..."
-docker image prune -f
+container_image_prune
 
 echo
 echo "Update finished."
