@@ -2,8 +2,9 @@
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/56187ad981a21b6f4e83617ea52721341d344acc.svg "Repobeats analytics image")
 
-
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Issues](https://img.shields.io/badge/issues-welcome-lightgrey.svg)](../../issues/new/choose)
 
 Deploy [Heimdall](https://heimdall.site/) with Docker Compose — a simple application dashboard for your homelab links.
 
@@ -13,6 +14,15 @@ Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and
 
 > **Updating an older clone?** `git pull` alone will not wipe data. Re-running install/compose **can** break a LinuxServer-based install. Read [BREAKING-CHANGES.md](BREAKING-CHANGES.md) first.
 
+**One-command Heimdall dashboard** — official PHP build of upstream Heimdall, interactive install, backups.
+
+> **Choose your path:** **Docker Compose (this repo)** · [Kubernetes](https://github.com/johnycsf/heimdall-k8s)
+
+## Who this is for
+
+**Good fit:** a simple start-page for your self-hosted apps on Docker.
+
+**Not for:** reusing old LinuxServer `/config` volumes — see BREAKING-CHANGES if migrating.
 
 ## Why this repo (not just another compose file)
 
@@ -22,6 +32,18 @@ Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and
 - Safe **`./update.sh`** with automatic pre-update backup
 - Incremental hardlink **`./backup.sh`** + restore
 - **Official upstream images only**
+
+## Support this work
+
+If this stack saved you setup time, please consider sponsoring — it funds:
+
+- Keeping install/update/backup scripts working across common Linux distros
+- Testing safe upgrades against **official** upstream images
+- Building more beginner-friendly stacks that share the same `./manage.sh` UX
+
+[![Sponsor johnycsf](https://img.shields.io/badge/GitHub%20Sponsors-Donate-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
+
+👉 **[github.com/sponsors/johnycsf](https://github.com/sponsors/johnycsf)**
 
 ## What you need
 
@@ -49,6 +71,8 @@ docker compose up -d --build
 ```
 
 Open `http://YOUR_IP/` (or the `HTTP_PORT` from `.env`).
+
+Liked the install? Star the repo or [sponsor johnycsf](https://github.com/sponsors/johnycsf) so more stacks stay maintained.
 
 ## Customize
 
@@ -86,7 +110,6 @@ This pulls/rebuilds images, recreates containers as needed, and runs `docker ima
 
 Only for installs already on this repo's official-php image — see [BREAKING-CHANGES.md](BREAKING-CHANGES.md).
 
-
 ## Disaster recovery (full backup / restore)
 
 Incremental snapshots via `rsync` hardlinks (unchanged files are not re-copied). `./update.sh` uses this same `backup.sh` before updating (into `./backups`).
@@ -110,7 +133,6 @@ Keep the backup root on **one filesystem** so hardlinks work. Prefer an external
 
 **Database safety:** Nextcloud uses a verified MariaDB *logical* dump (`mariadb-dump --single-transaction`) — the live `data/db` / DB PVC files are never rsync'd. SQLite apps (Heimdall, Vaultwarden) are stopped or scaled to 0, WAL-checkpointed when `sqlite3` is available, integrity-checked, then copied. Incremental hardlinks apply to file trees; each SQL dump is a full verified file with a SHA-256 in `META.txt`.
 
-
 ## Uninstall
 
 ```bash
@@ -118,7 +140,6 @@ docker compose down
 # optional: delete local data
 rm -rf data
 ```
-
 
 ## Credits
 
@@ -132,11 +153,6 @@ This project is provided **as is**. The author is **not responsible** for any lo
 
 If you hit an error, please [open a GitHub Issue](../../issues/new/choose) and follow [CONTRIBUTING.md](CONTRIBUTING.md). Fixes via Pull Request are welcome. GitHub Issues/PRs are the supported way to report problems—there is no private support channel.
 
-## Support this work
+## Security
 
-If these homelab tools save you time, please consider sponsoring:
-
-[![Sponsor johnycsf](https://img.shields.io/badge/GitHub%20Sponsors-Donate-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
-
-👉 **[github.com/sponsors/johnycsf](https://github.com/sponsors/johnycsf)** — tips and monthly support keep these beginner-friendly stacks maintained.
-
+See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
