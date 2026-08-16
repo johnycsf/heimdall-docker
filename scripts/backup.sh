@@ -428,6 +428,7 @@ do_restore() {
   [[ -f "${snap}/.env" ]] && cp -a "${snap}/.env" .env
   rm -rf data
   mkdir -p data
+  ensure_host_owned_dir data
   need_rsync
   rsync -aH "${snap}/files/" data/
   compose up -d --build

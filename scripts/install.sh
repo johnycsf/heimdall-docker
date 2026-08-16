@@ -62,6 +62,8 @@ ui_step "Building and starting containers"
 ui_run "Building Heimdall image" compose build
 ui_run "Starting stack" compose up -d
 
+ensure_host_owned_dir data data/config
+
 PORT="$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 80)"
 echo
 ui_ok "Heimdall is starting"
