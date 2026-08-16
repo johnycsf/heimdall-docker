@@ -41,9 +41,19 @@ ui_ok "Data path looks good"
 ui_step "Preparing configuration"
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  ui_ok "Created .env from .env.example — edit TZ/ports/APP_URL if you want"
+  ui_ok "Created .env from .env.example"
 else
   ui_ok "Using existing .env"
+fi
+configure_host_port HTTP_PORT "Heimdall HTTP" 80
+IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+if [[ -n "${IP}" ]]; then
+  if [[ "${HTTP_PORT}" == "80" ]]; then
+    env_file_set APP_URL "http://${IP}"
+  else
+    env_file_set APP_URL "http://${IP}:${HTTP_PORT}"
+  fi
+  ui_ok "APP_URL=$(env_file_get APP_URL)"
 fi
 mkdir -p data/config
 
