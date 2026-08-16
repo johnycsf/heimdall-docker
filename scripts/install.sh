@@ -59,8 +59,8 @@ fi
 mkdir -p data/config
 
 ui_step "Building and starting containers"
-ui_run "Building Heimdall image" compose build
-ui_run "Starting stack" compose up -d
+ui_run --stream "Building Heimdall image" compose build
+ui_run --stream "Starting stack" compose up -d
 
 ensure_host_owned_dir data data/config
 
