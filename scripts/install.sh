@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Install Heimdall with Docker Compose (interactive).
+# Install Heimdall with Compose / Docker or Podman (interactive).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 # shellcheck source=scripts/deps.sh
 source "${ROOT}/scripts/deps.sh"
 
-ui_banner "Heimdall" "Docker Compose · official php:apache + upstream Heimdall"
 ui_steps_init 4
 
 refuse_legacy_data() {
@@ -33,6 +32,7 @@ EOF
 
 ui_step "Checking host dependencies"
 configure_container_engine
+ui_banner "Heimdall" "$(compose_stack_subtitle "official php:apache + upstream Heimdall")"
 ensure_host_deps docker sqlite3
 
 ui_step "Checking for incompatible legacy data"
