@@ -32,6 +32,7 @@ EOF
 }
 
 ui_step "Checking host dependencies"
+configure_container_engine
 ensure_host_deps docker sqlite3
 
 ui_step "Checking for incompatible legacy data"
@@ -58,8 +59,8 @@ fi
 mkdir -p data/config
 
 ui_step "Building and starting containers"
-ui_run "Building Heimdall image" docker compose build
-ui_run "Starting stack" docker compose up -d
+ui_run "Building Heimdall image" compose build
+ui_run "Starting stack" compose up -d
 
 PORT="$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 80)"
 echo

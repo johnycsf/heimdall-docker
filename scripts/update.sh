@@ -5,6 +5,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=scripts/deps.sh
+source "${ROOT}/scripts/deps.sh"
 
 
 KEEP_FILE=".backup-keep-count"
@@ -149,7 +151,7 @@ create_backup() {
 
 
 need docker
-docker compose version >/dev/null
+compose version >/dev/null
 refuse_legacy_data
 
 if [[ ! -f .env ]]; then
@@ -160,11 +162,11 @@ fi
 create_backup
 
 echo "==> Pulling base image layers / rebuilding Heimdall..."
-docker compose build --pull
+compose build --pull
 echo "==> Recreating containers with new image (brief downtime per service)..."
-docker compose up -d --remove-orphans
+compose up -d --remove-orphans
 echo "==> Status:"
-docker compose ps
+compose ps
 echo "==> Removing dangling (untagged) images only — not other projects' images..."
 docker image prune -f
 

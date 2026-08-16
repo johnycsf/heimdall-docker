@@ -3,6 +3,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=scripts/deps.sh
+source "${ROOT}/scripts/deps.sh"
 # shellcheck source=scripts/backup-encrypt.sh
 source "${ROOT}/scripts/backup-encrypt.sh"
 STACK_ID="heimdall-docker"
@@ -360,14 +362,14 @@ verify_sqlite_tree() {
 do_backup() {
   need_rsync
   need docker
-  docker compose version >/dev/null
+  compose version >/dev/null
   [[ -n "$DEST" ]] || { echo "Provide --dest /path" >&2; exit 1; }
   DEST="$(mkdir -p "$DEST" && cd "$DEST" && pwd)"
   prepare_snapshot_dirs "$DEST"
   echo "==> Snapshot ${SNAP_NAME} -> ${SNAP_DIR}"
   echo "==> DB strategy: stop service, SQLite WAL checkpoint, then incremental file copy."
 
-  ensure_started() { docker compose start >/dev/null 2>&1 || true; }
+  ensure_started() { compose start >/dev/null 2>&1 || true; }
   cleanup_failed() {
     ensure_started
     rm -rf "${SNAP_DIR}"
@@ -375,7 +377,7 @@ do_backup() {
   trap cleanup_failed EXIT
 
   echo "==> Stopping stack for a consistent SQLite copy..."
-  docker compose stop
+  compose stop
   [[ -f .env ]] && cp -a .env "${SNAP_DIR}/"
   [[ -f docker-compose.yml ]] && cp -a docker-compose.yml "${SNAP_DIR}/"
   if [[ ! -d data ]]; then
@@ -396,7 +398,7 @@ db_engine=sqlite
 db_method=stop+wal_checkpoint+rsync
 EOF
   trap - EXIT
-  docker compose start
+  compose start
   seal_snapshot "${SNAP_DIR}"
   maybe_encrypt_after_seal
   finalize_snapshot "$DEST"
@@ -407,7 +409,7 @@ EOF
 
 do_restore() {
   need docker
-  docker compose version >/dev/null
+  compose version >/dev/null
   [[ -n "$FROM" ]] || { echo "Provide --from /path" >&2; exit 1; }
   local snap src
   src="$(prepare_restore_from_arg "$FROM")"
@@ -422,14 +424,14 @@ do_restore() {
   echo "This replaces ./data (and .env if present) with the snapshot."
   read -r -p "Type 'restore' to continue: " confirm || true
   [[ "${confirm}" == "restore" ]] || { echo "Aborted."; exit 1; }
-  docker compose down
+  compose down
   [[ -f "${snap}/.env" ]] && cp -a "${snap}/.env" .env
   rm -rf data
   mkdir -p data
   need_rsync
   rsync -aH "${snap}/files/" data/
-  docker compose up -d --build
-  docker compose ps
+  compose up -d --build
+  compose ps
   echo "Restore finished. Open Heimdall in your browser."
 }
 
