@@ -2,6 +2,9 @@
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/56187ad981a21b6f4e83617ea52721341d344acc.svg "Repobeats analytics image")
 
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
+
 Deploy [Heimdall](https://heimdall.site/) with Docker Compose — a simple application dashboard for your homelab links.
 
 Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
@@ -9,6 +12,16 @@ Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
 Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and builds Heimdall from the [upstream release](https://github.com/linuxserver/Heimdall/releases) (no LinuxServer container runtime).
 
 > **Updating an older clone?** `git pull` alone will not wipe data. Re-running install/compose **can** break a LinuxServer-based install. Read [BREAKING-CHANGES.md](BREAKING-CHANGES.md) first.
+
+
+## Why this repo (not just another compose file)
+
+- **`./manage.sh`** control center — install, update, backup, status/doctor, uninstall
+- Interactive colored install with step progress
+- Auto-detects your OS and installs missing host tools
+- Safe **`./update.sh`** with automatic pre-update backup
+- Incremental hardlink **`./backup.sh`** + restore
+- **Official upstream images only**
 
 ## What you need
 
@@ -23,8 +36,9 @@ Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and
 ```bash
 git clone https://github.com/johnycsf/heimdall-docker.git
 cd heimdall-docker
-chmod +x install.sh
-./install.sh
+chmod +x manage.sh install.sh
+./manage.sh          # interactive control center
+# or: ./install.sh
 ```
 
 Or:
@@ -109,3 +123,12 @@ rm -rf data
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support this work
+
+If these homelab tools save you time, please consider sponsoring:
+
+[![Sponsor johnycsf](https://img.shields.io/badge/GitHub%20Sponsors-Donate-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
+
+👉 **[github.com/sponsors/johnycsf](https://github.com/sponsors/johnycsf)** — tips and monthly support keep these beginner-friendly stacks maintained.
+
