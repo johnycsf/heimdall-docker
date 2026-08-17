@@ -81,7 +81,7 @@ Edit `.env`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `TZ` | `America/New_York` | Timezone |
-| `HTTP_PORT` | `80` | Host port |
+| `HTTP_PORT` | `80` (Docker) / `8080` (rootless Podman) | Host port |
 | `ALLOW_INTERNAL_REQUESTS` | `true` | Allow Heimdall to reach LAN app IPs |
 | `APP_URL` | `http://localhost` | Public URL (set this if you use a reverse proxy) |
 
