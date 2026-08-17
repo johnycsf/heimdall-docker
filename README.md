@@ -70,7 +70,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Open `http://YOUR_IP/` (or the `HTTP_PORT` from `.env`).
+Open `http://YOUR_IP:8080/` (or the `HTTP_PORT` from `.env`).
 
 Liked the install? Star the repo or [sponsor johnycsf](https://github.com/sponsors/johnycsf) so more stacks stay maintained.
 
@@ -81,9 +81,9 @@ Edit `.env`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `TZ` | `America/New_York` | Timezone |
-| `HTTP_PORT` | `80` (Docker) / `8080` (rootless Podman) | Host port |
+| `HTTP_PORT` | `8080` | Host port (Docker users may set `80`) |
 | `ALLOW_INTERNAL_REQUESTS` | `true` | Allow Heimdall to reach LAN app IPs |
-| `APP_URL` | `http://localhost` | Public URL (set this if you use a reverse proxy) |
+| `APP_URL` | `http://localhost:8080` | Public URL (set this if you use a reverse proxy) |
 
 ## Update
 
@@ -159,6 +159,20 @@ If you hit an error, please [open a GitHub Issue](../../issues/new/choose) and f
 During `./manage.sh` (or Manage → Install / reconfigure), the script checks whether default host ports are free, lets you keep the defaults or choose different ports, and saves them in `.env`. Re-running install keeps your current ports unless you change them.
 
 Non-interactive: set the port variables in `.env` (or the environment) and use `SKIP_PORT_PROMPTS=1`.
+
+Defaults are kept unique across the johnycsf stacks so you can run several on one host without a clash:
+
+| Stack | Variable | Default host port |
+|-------|----------|-------------------|
+| `heimdall-docker` | `HTTP_PORT` | `8080` |
+| `vaultwarden-docker` | `PORT` | `8081` |
+| `nextcloud-office-docker` | `NEXTCLOUD_PORT` | `8082` |
+| `nextcloud-office-docker` | `COLLABORA_PORT` | `9980` |
+| `immich-docker` | `IMMICH_PORT` | `2283` |
+
+Install also refuses a port another stack checked out beside this one already claims in its `.env` — even when that stack is stopped — and offers the next free port instead.
+
+All defaults are `>= 1024` because **rootless Podman cannot publish privileged ports** (`80`, `443`). On Docker you may still set `HTTP_PORT=80` if you want.
 
 ## Container engine
 

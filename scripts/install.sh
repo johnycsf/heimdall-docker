@@ -10,7 +10,7 @@ ui_steps_init 4
 
 refuse_legacy_data() {
   if [[ "${I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL:-}" == "yes" ]]; then
-    ui_warn "Override set: I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes — continuing."
+    ui_warn "Override set: I_UNDERSTAND_THIS_IS_A_FRESH_INSTALL=yes - continuing."
     return 0
   fi
   if [[ -d data/config/www ]] || [[ -f data/config/www/index.php ]]; then
@@ -46,7 +46,7 @@ if [[ ! -f .env ]]; then
 else
   ui_ok "Using existing .env"
 fi
-configure_host_port HTTP_PORT "Heimdall HTTP" 80
+configure_host_port HTTP_PORT "Heimdall HTTP" 8080
 IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
 if [[ -n "${IP}" ]]; then
   if [[ "${HTTP_PORT}" == "80" ]]; then
@@ -64,8 +64,8 @@ ui_run --stream "Starting stack" compose up -d
 
 ensure_host_owned_dir data data/config
 
-PORT="$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 80)"
+PORT="$(grep -E '^HTTP_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 8080)"
 echo
 ui_ok "Heimdall is starting"
 ui_info "Open: ${UI_BOLD}http://<this-computer-ip>:${PORT}/${UI_RESET}"
-ui_info "Later: ./manage.sh update   ·   ./manage.sh backup --dest /path/to/backups"
+ui_info "Later: ./manage.sh update   -   ./manage.sh backup --dest /path/to/backups"

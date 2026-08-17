@@ -37,12 +37,12 @@ Disaster-recovery backups (also used by ./manage.sh update for pre-update snapsh
   --archive FMT      After snapshot, also write a compressed export (tar.gz|tar.xz|zip).
                      Local hardlink snapshots stay uncompressed for --link-dest.
   --archive-password Password-protect that archive:
-                       zip   → zip -e (ZipCrypto; casual protection)
-                       tar.* → compress then age -p (strong passphrase)
+                       zip   -> zip -e (ZipCrypto; casual protection)
+                       tar.* -> compress then age -p (strong passphrase)
   --encrypt          Advanced: age-encrypted .tar.age export (recipient key).
   --export-dir DIR   Where to put exports (default: DEST/exports for --archive,
                      DEST/encrypted for --encrypt).
-  --age-recipient R  age1… public key or path to recipients file (repeatable).
+  --age-recipient R  age1... public key or path to recipients file (repeatable).
   --age-identity F   Private key file for decrypt (default: ~/.config/johnycsf/backup.age.key).
   --passphrase       With --encrypt: age -p instead of a recipient key.
 
@@ -56,8 +56,8 @@ Fresh-machine workflow:
   3) Script replaces data/secrets and finishes app-specific repair (e.g. Nextcloud scan).
 
 Database safety:
-  MariaDB/Nextcloud  — logical dump (--single-transaction), never live datadir copy.
-  SQLite apps       — service stopped/scaled down, WAL checkpoint, then file copy.
+  MariaDB/Nextcloud  - logical dump (--single-transaction), never live datadir copy.
+  SQLite apps       - service stopped/scaled down, WAL checkpoint, then file copy.
   Incremental rsync applies to files; each MariaDB dump is a full verified SQL file.
 EOF
 }
@@ -227,7 +227,7 @@ seal_snapshot() {
   local snap="$1"
   echo "==> Sealing snapshot with SHA256 manifests..."
   if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
-    echo "WARNING: sha256sum/shasum not found — snapshot will lack integrity key." >&2
+    echo "WARNING: sha256sum/shasum not found - snapshot will lack integrity key." >&2
     return 0
   fi
   (
@@ -266,12 +266,12 @@ verify_snapshot_integrity() {
   local warn=0
   echo "==> Checking snapshot integrity (SHA256)..."
   if [[ ! -f "${snap}/SHA256SUMS" ]]; then
-    echo "WARNING: No SHA256SUMS manifest — cannot verify integrity (legacy or incomplete backup)." >&2
+    echo "WARNING: No SHA256SUMS manifest - cannot verify integrity (legacy or incomplete backup)." >&2
     echo "         Restore will continue, but corruption cannot be ruled out." >&2
     return 0
   fi
   if ! command -v sha256sum >/dev/null 2>&1; then
-    echo "WARNING: sha256sum not found — skipping per-file check." >&2
+    echo "WARNING: sha256sum not found - skipping per-file check." >&2
     warn=1
   else
     local out
@@ -280,7 +280,7 @@ verify_snapshot_integrity() {
     local rc=$?
     set -e
     if [[ "$rc" -ne 0 ]]; then
-      echo "WARNING: SHA256 file verification FAILED — integrity is lost; restore may cause issues." >&2
+      echo "WARNING: SHA256 file verification FAILED - integrity is lost; restore may cause issues." >&2
       printf '%s\n' "$out" | grep -v ': OK$' | head -n 40 >&2 || true
       warn=1
     fi
@@ -292,7 +292,7 @@ verify_snapshot_integrity() {
     echo "WARNING: META.txt has no snapshot_sha256 key." >&2
     warn=1
   elif [[ "$actual" != "$expected" ]]; then
-    echo "WARNING: SHA256SUMS does not match META snapshot_sha256 — integrity is lost; restore may cause issues." >&2
+    echo "WARNING: SHA256SUMS does not match META snapshot_sha256 - integrity is lost; restore may cause issues." >&2
     echo "         expected=${expected}" >&2
     echo "         actual=${actual}" >&2
     warn=1
@@ -322,7 +322,7 @@ EOF
 sqlite_checkpoint_tree() {
   local root="$1"
   command -v sqlite3 >/dev/null 2>&1 || {
-    echo "    sqlite3 CLI not on host — relying on stopped service + full file copy (incl. -wal/-shm)."
+    echo "    sqlite3 CLI not on host - relying on stopped service + full file copy (incl. -wal/-shm)."
     return 0
   }
   local db count=0
@@ -383,7 +383,7 @@ do_backup() {
   [[ -f .env ]] && cp -a .env "${SNAP_DIR}/"
   [[ -f docker-compose.yml ]] && cp -a docker-compose.yml "${SNAP_DIR}/"
   if [[ ! -d data ]]; then
-    echo "No data/ directory — nothing to back up." >&2
+    echo "No data/ directory - nothing to back up." >&2
     exit 1
   fi
   sqlite_checkpoint_tree "data"
@@ -421,7 +421,7 @@ do_restore() {
   echo "Restoring from: $snap"
   verify_snapshot_integrity "$snap"
   grep -q "stack=${STACK_ID}" "${snap}/META.txt" 2>/dev/null || \
-    echo "Warning: META stack id may not match ${STACK_ID} — continuing." >&2
+    echo "Warning: META stack id may not match ${STACK_ID} - continuing." >&2
   [[ -d "${snap}/files" ]] || { echo "Missing files/ in snapshot" >&2; exit 1; }
   echo
   echo "This replaces ./data (and .env if present) with the snapshot."
