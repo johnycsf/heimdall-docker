@@ -450,13 +450,6 @@ host_firewall_backend() {
   # Echo the active host firewall: firewalld | ufw | unknown | none
   # "unknown" means a firewall is installed but its state could not be read.
   local state
-  # Prefer systemctl detection to catch firewalld even when firewall-cmd
-  # binary is missing or not on PATH (service may still be active).
-  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
-    printf 'firewalld\n'
-    return 0
-  fi
-
   if command -v firewall-cmd >/dev/null 2>&1; then
     # Try unprivileged query first
     if firewall-cmd --state >/dev/null 2>&1; then
@@ -468,11 +461,15 @@ host_firewall_backend() {
       printf 'firewalld\n'
       return 0
     fi
-    # firewall-cmd exists but couldn't be queried without privileges
-    printf 'firewalld\n'
+    # Fall back to systemctl if available (service is active but firewall-cmd couldn't be queried)
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet firewalld; then
+      printf 'firewalld\n'
+      return 0
+    fi
+    # We know firewalld is installed but couldn't read state without privileges
+    printf 'unknown\n'
     return 0
   fi
-
   if command -v ufw >/dev/null 2>&1; then
     state="$(_ufw_status_text)"
     if [[ "${state}" == *"Status: active"* ]]; then
@@ -485,9 +482,7 @@ host_firewall_backend() {
     fi
   fi
   printf 'none\n'
-
 }
-
 
 _firewall_open_firewalld() {
   local port="$1"
@@ -524,6 +519,7 @@ _firewall_open_ufw() {
 }
 
 ensure_sudo_cached() {
+  # Attempt to cache sudo credentials up-front to avoid repeated password prompts.
   if command -v sudo >/dev/null 2>&1 && [[ -t 0 ]] && [[ "${SKIP_SUDO_PROMPT:-}" != "1" ]]; then
     ui_info "Requesting sudo to cache credentials (may prompt)."
     if ! sudo -v 2>/dev/null; then
@@ -539,6 +535,7 @@ ensure_host_firewall_tcp_port() {
   # which reads as a failed install.
   local port="$1"
   [[ -n "${port}" ]] || return 0
+  ensure_sudo_cached
   local backend
   backend="$(host_firewall_backend)"
   case "${backend}" in
@@ -549,8 +546,8 @@ ensure_host_firewall_tcp_port() {
       _firewall_open_ufw "${port}"
       ;;
     unknown)
-      ui_warn "A host firewall was detected but its status could not be read without a password."
-      ui_info "If ${port} is unreachable from other machines: sudo firewall-cmd --permanent --add-port=${port}/tcp && sudo firewall-cmd --reload  OR sudo ufw allow ${port}/tcp"
+      ui_warn "ufw is installed but its status could not be read without a password."
+      ui_info "If ${port} is unreachable from other machines: sudo ufw allow ${port}/tcp"
       ;;
     *)
       # No higher-level firewall detected. Try to open the port directly via nft or iptables.
@@ -584,6 +581,23 @@ ensure_host_firewall_tcp_port() {
         ui_info "Attempting: sudo iptables -I INPUT -p tcp --dport ${port} -j ACCEPT"
         if sudo iptables -I INPUT -p tcp --dport "${port}" -j ACCEPT >/dev/null 2>&1; then
           ui_ok "Opened ${port}/tcp via iptables (temporary)."
+          # Persist iptables rules automatically unless SKIP_PORT_PROMPTS=1 or non-interactive
+          if [[ "${SKIP_PORT_PROMPTS:-}" == "1" || ! -t 0 ]]; then
+            ui_info "Skipping interactive prompt; attempting to persist iptables rules."
+          else
+            ui_info "Persisting iptables rules to /etc/iptables/rules.v4 (may require sudo)."
+          fi
+          if sudo mkdir -p /etc/iptables 2>/dev/null || true && sudo sh -c 'iptables-save > /etc/iptables/rules.v4' >/dev/null 2>&1; then
+            ui_ok "Saved iptables rules to /etc/iptables/rules.v4"
+            # Try to reload persistence service if present
+            if command -v systemctl >/dev/null 2>&1; then
+              sudo systemctl enable --now netfilter-persistent.service >/dev/null 2>&1 || true
+              sudo systemctl reload netfilter-persistent.service >/dev/null 2>&1 || sudo systemctl restart netfilter-persistent.service >/dev/null 2>&1 || true
+              ui_ok "netfilter-persistent service reloaded (if present)"
+            fi
+          else
+            ui_err "Failed to save iptables rules. To persist manually run: sudo iptables-save > /etc/iptables/rules.v4"
+          fi
           return 0
         fi
       fi
@@ -1993,6 +2007,166 @@ confirm_destructive() {
   [[ "${typed}" == "${phrase}" ]]
 }
 
+# Remove a TCP port from the host firewall (best-effort across firewalld/ufw/nft/iptables)
+remove_host_firewall_tcp_port() {
+  local port="$1"
+  [[ -n "${port}" ]] || return 0
+  ensure_sudo_cached
+  local backend
+  backend="$(host_firewall_backend)"
+  case "${backend}" in
+    firewalld)
+      if sudo firewall-cmd --quiet --query-port="${port}/tcp" 2>/dev/null; then
+        if sudo firewall-cmd --permanent --remove-port="${port}/tcp" >/dev/null 2>&1 && sudo firewall-cmd --reload >/dev/null 2>&1; then
+          ui_ok "firewalld: ${port}/tcp removed"
+          return 0
+        fi
+        ui_warn "firewalld: could not remove ${port}/tcp automatically"
+        ui_info "Run: sudo firewall-cmd --permanent --remove-port=${port}/tcp && sudo firewall-cmd --reload"
+      else
+        ui_ok "firewalld did not have ${port}/tcp open"
+      fi
+      ;;
+    ufw)
+      local rules
+      rules="$(_ufw_status_text)"
+      if grep -qE '(^|[[:space:]])'"${port}"'/tcp([[:space:]]|$)' <<<"${rules}"; then
+        if command -v sudo >/dev/null 2>&1 && sudo ufw --force delete allow "${port}/tcp" >/dev/null 2>&1; then
+          ui_ok "ufw: ${port}/tcp removed"
+          return 0
+        fi
+        ui_warn "Could not remove ufw rule for ${port}/tcp automatically"
+        ui_info "Run: sudo ufw delete allow ${port}/tcp"
+      else
+        ui_ok "ufw did not have ${port}/tcp open"
+      fi
+      ;;
+    unknown)
+      ui_warn "Firewall present but state could not be read without privileges. To remove ${port}/tcp run firewall-cmd/ufw as appropriate."
+      ;;
+    *)
+      # Try nft first
+      if command -v nft >/dev/null 2>&1; then
+        ui_info "Attempting: sudo nft delete rule inet filter input tcp dport ${port} accept"
+        if sudo nft delete rule inet filter input tcp dport "${port}" accept >/dev/null 2>&1; then
+          ui_ok "Removed ${port}/tcp via nft (temporary)."
+          if sudo sh -c 'cp -n /etc/nftables.conf /etc/nftables.conf.bak 2>/dev/null || true' && sudo sh -c 'nft list ruleset > /etc/nftables.conf' >/dev/null 2>&1; then
+            ui_ok "Saved nft ruleset to /etc/nftables.conf"
+            sudo systemctl reload nftables.service >/dev/null 2>&1 || true
+          fi
+          return 0
+        fi
+      fi
+      if command -v iptables >/dev/null 2>&1; then
+        ui_info "Attempting: sudo iptables -D INPUT -p tcp --dport ${port} -j ACCEPT"
+        if sudo iptables -D INPUT -p tcp --dport "${port}" -j ACCEPT >/dev/null 2>&1; then
+          ui_ok "Removed ${port}/tcp via iptables (temporary)."
+          if sudo mkdir -p /etc/iptables 2>/dev/null || true && sudo sh -c 'iptables-save > /etc/iptables/rules.v4' >/dev/null 2>&1; then
+            ui_ok "Saved iptables rules to /etc/iptables/rules.v4"
+            sudo systemctl reload netfilter-persistent.service >/dev/null 2>&1 || true
+          fi
+          return 0
+        fi
+      fi
+      ui_warn "Could not remove ${port}/tcp automatically. Manual cleanup may be required."
+      ui_info "Examples: sudo firewall-cmd --permanent --remove-port=${port}/tcp && sudo firewall-cmd --reload  OR sudo ufw delete allow ${port}/tcp"
+      ;;
+  esac
+  return 0
+}
+
+# Delete images referenced in compose files (best-effort). Skips templated/image variables.
+delete_images_used_by_compose() {
+  ensure_sudo_cached
+  load_container_engine
+  local imgs=() f value
+
+  # Prefer resolved compose config (interpolates .env) when available so
+  # templated entries like ${IMAGE_REGISTRY:-docker.io}/nextcloud are expanded.
+  if compose config >/dev/null 2>&1; then
+    while IFS= read -r value; do
+      # strip surrounding quotes and whitespace
+      value="$(printf '%s' "${value}" | sed "s/[\"']//g" | sed 's/^ *//; s/ *$//')"
+      [[ -n "${value}" ]] || continue
+      # If templated, try to resolve IMAGE_REGISTRY from .env then skip if still templated
+      if [[ "${value}" == *'${'* ]]; then
+        if [[ "${value}" == *'IMAGE_REGISTRY'* ]]; then
+          reg="$(env_file_get IMAGE_REGISTRY docker.io "${ROOT}/.env" 2>/dev/null || true)"
+          if [[ -z "${reg}" ]]; then reg=docker.io; fi
+          value="${value//\${IMAGE_REGISTRY:-docker.io}/${reg}}"
+          value="${value//\${IMAGE_REGISTRY}/${reg}}"
+        fi
+        if [[ "${value}" == *'${'* ]]; then
+          ui_info "Skipping templated image entry: ${value}"
+          continue
+        fi
+      fi
+      imgs+=("${value}")
+    done < <(compose config 2>/dev/null | sed -n -e 's/^[[:space:]]*image:[[:space:]]*//p')
+  else
+    # Fallback: parse files directly (older environments)
+    for f in "${ROOT}/docker-compose.yml" "${ROOT}/compose.yaml" "${ROOT}/docker-compose.yaml" "${ROOT}/compose.yml"; do
+      [[ -f "${f}" ]] || continue
+      while IFS= read -r matches; do
+        line="${matches#*:}"
+        # strip image: prefix, remove quotes, trim
+        value=$(echo "${line}" | sed -E 's/^[[:space:]]*image:[[:space:]]*//' | sed "s/[\"']//g" | sed 's/^ *//; s/ *$//')
+        [[ -n "${value}" ]] || continue
+        if [[ "${value}" == *'${'* ]]; then
+          # Try to resolve IMAGE_REGISTRY from .env or default to docker.io
+          if [[ "${value}" == *'IMAGE_REGISTRY'* ]]; then
+            reg="$(env_file_get IMAGE_REGISTRY docker.io "${ROOT}/.env" 2>/dev/null || true)"
+            if [[ -z "${reg}" ]]; then reg=docker.io; fi
+            # Replace common parameter forms
+            value="$(printf '%s' "${value}" | awk -v r="${reg}" '{gsub(/\$\{IMAGE_REGISTRY:-docker.io\}/,r); gsub(/\$\{IMAGE_REGISTRY\}/,r); print}')"
+            value="$(printf '%s' "${value}" | awk -v r="${reg}" '{gsub(/\$\{IMAGE_REGISTRY\}/,r); print}')"
+          fi
+          # If still templated, skip
+          if [[ "${value}" == *'${'* ]]; then
+            ui_info "Skipping templated image entry: ${value}"
+            continue
+          fi
+        fi
+        imgs+=("${value}")
+      done < <(grep -n -E '^[[:space:]]*image[[:space:]]*:' "${f}" || true)
+    done
+  fi
+
+  local uniq=()
+  for value in "${imgs[@]}"; do
+    if [[ " ${uniq[*]} " != *" ${value} "* ]]; then
+      uniq+=("${value}")
+    fi
+  done
+  if [[ ${#uniq[@]} -eq 0 ]]; then
+    ui_info "No explicit image entries found in compose files to remove (or entries are templated)."
+    return 0
+  fi
+
+  ui_info "Images to delete: ${uniq[*]}"
+  if [[ "${DRY_RUN:-}" == "1" ]]; then
+    ui_info "Dry-run enabled: not removing images."
+    return 0
+  fi
+  case "${CONTAINER_ENGINE}" in
+    podman)
+      for value in "${uniq[@]}"; do
+        ui_info "Removing podman image: ${value}"
+        sudo podman rmi -f "${value}" >/dev/null 2>&1 || podman rmi -f "${value}" >/dev/null 2>&1 || ui_warn "Failed to remove ${value}"
+      done
+      ;;
+    *)
+      if compose down --rmi all >/dev/null 2>&1; then
+        ui_ok "docker compose down --rmi all succeeded"
+      else
+        for value in "${uniq[@]}"; do
+          ui_info "Removing docker image: ${value}"
+          sudo docker image rm -f "${value}" >/dev/null 2>&1 || docker image rm -f "${value}" >/dev/null 2>&1 || ui_warn "Failed to remove ${value}"
+        done
+      fi
+      ;;
+  esac
+}
 uninstall_docker_stack() {
   local title="$1"
   load_container_engine
@@ -2003,18 +2177,18 @@ uninstall_docker_stack() {
 
   if [[ -f "${ROOT}/docker-compose.yml" || -f "${ROOT}/compose.yaml" ]]; then
     ui_run "compose down" compose down || true
+  fi
 
   local close_ports
   ui_ask_yn close_ports "Also CLOSE host firewall ports opened for this stack?" n
   if [[ "${close_ports}" == "y" ]]; then
+    # Read common port env keys and attempt removal if set
     for pkey in NEXTCLOUD_PORT COLLABORA_PORT HTTP_PORT PORT IMMICH_PORT; do
       pval="$(env_file_get "${pkey}" "" "${ROOT}/.env" 2>/dev/null || true)"
       if [[ -n "${pval}" ]]; then
         remove_host_firewall_tcp_port "${pval}" || true
       fi
     done
-  fi
-
   fi
 
   local wipe
