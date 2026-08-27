@@ -1,28 +1,29 @@
 # heimdall-docker
 
-![Repobeats analytics image](https://repobeats.axiom.co/api/embed/56187ad981a21b6f4e83617ea52721341d344acc.svg "Repobeats analytics image")
-
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Issues](https://img.shields.io/badge/issues-welcome-lightgrey.svg)](../../issues/new/choose)
 
-Deploy [Heimdall](https://heimdall.site/) with Docker Compose — a simple application dashboard for your homelab links.
+One-command Heimdall for homelab beginners — official images, backup-before-update.
 
-Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
+![`./manage.sh` control center](docs/manage-demo.gif)
+
+## Install
+
+```bash
+git clone https://github.com/johnycsf/heimdall-docker.git
+cd heimdall-docker
+chmod +x manage.sh
+./manage.sh
+```
+
+`./manage.sh` opens a **↑/↓ menu** with a `>` cursor (j/k and Enter also work). Open `http://YOUR_IP:8080/` (or the `HTTP_PORT` from `.env`).
 
 Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and builds Heimdall from the [upstream release](https://github.com/linuxserver/Heimdall/releases) (no LinuxServer container runtime).
 
+Kubernetes version: [heimdall-k8s](https://github.com/johnycsf/heimdall-k8s)
+
 > **Updating an older clone?** `git pull` alone will not wipe data. Re-running install/compose **can** break a LinuxServer-based install. Read [BREAKING-CHANGES.md](BREAKING-CHANGES.md) first.
-
-**One-command Heimdall dashboard** — official PHP build of upstream Heimdall, interactive install, backups.
-
-> **Choose your path:** **Docker Compose (this repo)** · [Kubernetes](https://github.com/johnycsf/heimdall-k8s)
-
-## Who this is for
-
-**Good fit:** a simple start-page for your self-hosted apps on Docker.
-
-**Not for:** reusing old LinuxServer `/config` volumes — see BREAKING-CHANGES if migrating.
 
 ## Why this repo (not just another compose file)
 
@@ -33,52 +34,15 @@ Uses the **official** [`php:8.4-apache`](https://hub.docker.com/_/php) image and
 - Incremental hardlink **`./manage.sh backup`** + restore
 - **Official upstream images only**
 
-## Support this work
-
-**If this project helped you — or saved you hours of setup — please consider [sponsoring or donating](https://github.com/sponsors/johnycsf).** These repos stay free and maintained because people like you chip in.
-
-Your sponsorship funds:
-
-- Keeping install, update, and backup scripts working across common Linux distros (and macOS where supported)
-- Testing safe upgrades against **official** upstream images before you run them
-- Building more beginner-friendly homelab stacks with the same `./manage.sh` experience
-
-[![Sponsor johnycsf](https://img.shields.io/badge/GitHub%20Sponsors-Donate-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/johnycsf)
-
-👉 **[github.com/sponsors/johnycsf](https://github.com/sponsors/johnycsf)** — even a small monthly sponsorship helps keep development going.
-
 ## What you need
 
 - A Linux host (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine) or macOS with Homebrew
 - `sudo` so `./manage.sh` can install missing tools (Docker, curl, openssl, rsync, …)
 - Enough disk for your data
 
-`./manage.sh` is interactive (colors + step progress), detects your OS, and installs host dependencies automatically.
-
-## Install
-
-```bash
-git clone https://github.com/johnycsf/heimdall-docker.git
-cd heimdall-docker
-chmod +x manage.sh
-./manage.sh          # interactive control center
-# or: ./manage.sh
-```
-
-Or:
-
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
-
-Open `http://YOUR_IP:8080/` (or the `HTTP_PORT` from `.env`).
-
-Liked the install? Star the repo or [sponsor johnycsf](https://github.com/sponsors/johnycsf) so more stacks stay maintained.
-
 ## Customize
 
-Edit `.env`:
+Edit `.env` (created from `.env.example`):
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -89,48 +53,37 @@ Edit `.env`:
 
 ## Update
 
-Keep the stack current (safe while running; brief recreate downtime):
-
 ```bash
 ./manage.sh update
 ```
 
-Before changing anything, the script runs `./manage.sh backup` into `./backups` (incremental, database-safe). After a successful update it asks whether to **keep** or **delete** that snapshot, and how many local copies to retain (older ones are pruned). Copy important backups to an external drive, NAS, or cloud so they do not fill this disk.
+Before updating, the script runs `./manage.sh backup` into `./backups` (incremental, SQLite-safe). Afterward it asks whether to keep that snapshot and how many copies to retain.
 
-To roll back later (same tool as disaster recovery):
+## Backup and restore
+
+Prefer an external drive or NAS (hardlinks need one filesystem):
 
 ```bash
-./manage.sh backup --restore --from ./backups
-# or from an external copy:
-./manage.sh backup --restore --from /mnt/usb/my-backups
+./manage.sh backup --dest /mnt/backup --keep 5
 ```
+
+Each run writes `/mnt/backup/heimdall-docker/snapshots/...`.
+
+Restore (this machine or a new one after `./manage.sh` / with compose present):
+
+```bash
+./manage.sh backup --restore --from /mnt/usb/heimdall-docker-backups
+# or a local snapshot tree:
+./manage.sh backup --restore --from ./backups
+```
+
+Each snapshot includes `SHA256SUMS` plus a `snapshot_sha256` key in `META.txt`. Restore **warns** (does not abort) if integrity is lost.
+
+**Database safety:** Heimdall (SQLite) is stopped, WAL-checkpointed when `sqlite3` is available, integrity-checked, then copied. Incremental hardlinks apply to file trees; each dump is a full verified file with a SHA-256 in `META.txt`.
 
 Older `backups/update-*` tarball folders (from previous script versions) are no longer used by `./manage.sh update`; use each folder's `RESTORE.txt` if you still need one, or delete them to free space.
 
-This pulls/rebuilds images, recreates containers as needed, and runs `docker image prune` for **dangling** (untagged) images only — it will not wipe other projects' images or your `data/` volume.
-
 Only for installs already on this repo's official-php image — see [BREAKING-CHANGES.md](BREAKING-CHANGES.md).
-
-## Disaster recovery (full backup / restore)
-
-Incremental snapshots via `rsync` hardlinks (unchanged files are not re-copied). `./manage.sh update` uses this same `backup.sh` before updating (into `./backups`).
-
-```bash
-# Backup to USB/NAS/external path (repeat anytime; later runs are incremental)
-./manage.sh backup --dest /mnt/usb/heimdall-docker-backups
-./manage.sh backup --dest /mnt/usb/heimdall-docker-backups --keep 5   # optional: retain only newest N
-
-# On a brand-new machine/cluster after ./manage.sh:
-./manage.sh backup --restore --from /mnt/usb/heimdall-docker-backups
-# or a specific snapshot:
-./manage.sh backup --restore --from /mnt/usb/heimdall-docker-backups/snapshots/YYYYMMDD-HHMMSS
-```
-
-Each snapshot includes `SHA256SUMS` plus a `snapshot_sha256` key in `META.txt`. Restore verifies these and **warns** (does not abort) if integrity is lost.
-
-Keep the backup root on **one filesystem** so hardlinks work. Prefer an external drive, NAS, or cloud sync of that folder.
-
-**Database safety:** Nextcloud uses a verified MariaDB *logical* dump (`mariadb-dump --single-transaction`) — the live `data/db` / DB PVC files are never rsync'd. SQLite apps (Heimdall, Vaultwarden) are stopped or scaled to 0, WAL-checkpointed when `sqlite3` is available, integrity-checked, then copied. Incremental hardlinks apply to file trees; each SQL dump is a full verified file with a SHA-256 in `META.txt`.
 
 ## Uninstall
 
@@ -140,21 +93,7 @@ docker compose down
 rm -rf data
 ```
 
-## Credits
-
-This repo packages or configures upstream software. See [CREDITS.md](CREDITS.md) for the main developers and projects this work builds on.
-
-## Disclaimer
-
-This project is provided **as is**. The author is **not responsible** for any loss, damage, data corruption, downtime, security issues, or other consequences from using it. Full text: [DISCLAIMER.md](DISCLAIMER.md).
-
-## Bug reports & contributions
-
-If you hit an error, please [open a GitHub Issue](../../issues/new/choose) and follow [CONTRIBUTING.md](CONTRIBUTING.md). Fixes via Pull Request are welcome. GitHub Issues/PRs are the supported way to report problems—there is no private support channel.
-
-## Interactive control center
-
-`./manage.sh` opens a simple **↑/↓ menu** with a `>` cursor (j/k and Enter also work). No extra packages required.
+Or use **Uninstall** in `./manage.sh`.
 
 ## Host ports
 
@@ -178,7 +117,7 @@ All defaults are `>= 1024` because **rootless Podman cannot publish privileged p
 
 ## Container engine
 
-During `./manage.sh` → Install you can choose **Docker** or **Podman**. The choice is saved as `CONTAINER_ENGINE` in `.env`. All manage actions (`update`, `backup`, `restore`, …) use that engine via a shared `compose` helper.
+During `./manage.sh` → Install you can choose **Docker** or **Podman**. The choice is saved as `CONTAINER_ENGINE` in `.env` and reused for every manage action (`update`, `backup`, `restore`, status, …) via a shared `compose` helper. Restore preserves that host choice (and host ports) even if the backup’s `.env` is older.
 
 ## Backup exports
 
@@ -186,6 +125,20 @@ During `./manage.sh` → Install you can choose **Docker** or **Podman**. The ch
 
 Local snapshots stay as incremental hardlink trees (fast rollback). Optionally create a compressed offsite copy with `./manage.sh backup --dest ./backups --archive tar.gz|tar.xz|zip` (add `--archive-password` for zip password or age-passphrase on tar). For stronger key-based encryption use `--encrypt` (age). See repo-framework `docs/BACKUP_ENCRYPTION.md`.
 
+## Credits
+
+This repo packages or configures upstream software. See [CREDITS.md](CREDITS.md) for the main developers and projects this work builds on.
+
+## Disclaimer
+
+This project is provided **as is**. The author is **not responsible** for any loss, damage, data corruption, downtime, security issues, or other consequences from using it. Full text: [DISCLAIMER.md](DISCLAIMER.md).
+
+## Bug reports & contributions
+
+If you hit an error, please [open a GitHub Issue](../../issues/new/choose) and follow [CONTRIBUTING.md](CONTRIBUTING.md). Fixes via Pull Request are welcome. GitHub Issues/PRs are the supported way to report problems—there is no private support channel.
+
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+
+Sponsorship funds testing and maintenance: [github.com/sponsors/johnycsf](https://github.com/sponsors/johnycsf).

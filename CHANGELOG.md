@@ -1,5 +1,7 @@
 ## Unreleased
 
+- README leads with the `./manage.sh` control-center demo GIF and a one-line pitch; sponsor sales copy is reduced to a header badge plus one closing line.
+
 - Set Compose `restart: always` and enable `podman-restart.service` so rootless Podman brings containers back after a host reboot.
 
 - Fix root-owned data dirs after compose/restore so host rsync backup/restore works for all users.
