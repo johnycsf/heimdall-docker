@@ -33,7 +33,7 @@ EOF
 ui_step "Checking host dependencies"
 configure_container_engine
 ui_banner "Heimdall" "$(compose_stack_subtitle "official php:apache + upstream Heimdall")"
-ensure_host_deps docker sqlite3
+ensure_host_deps docker sqlite3 age zip unzip xz
 
 ui_step "Checking for incompatible legacy data"
 refuse_legacy_data
